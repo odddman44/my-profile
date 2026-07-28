@@ -37,3 +37,6 @@ out/
 
 # Claude Code local settings
 .claude/
+
+# Superpowers 브레인스토밍 임시 산출물
+.superpowers/
