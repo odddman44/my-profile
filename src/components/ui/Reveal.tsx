@@ -36,6 +36,7 @@ export function Reveal({ children, delay = 0 }: Props) {
   return (
     <div
       ref={ref}
+      data-reveal
       style={{ transitionDelay: `${delay}ms` }}
       className={`transition-all duration-700 motion-reduce:transition-none ${
         // motion-reduce:opacity-100 없이 트랜지션만 끄면 opacity-0 상태로 영원히 고정된다 — 콘텐츠가 사라지는 사고를 막는다
