@@ -116,3 +116,45 @@ export function starPosition(
     y: wrap(star.hy * viewport.height - offset.y, viewport.height),
   };
 }
+
+export type GravityResult = Vec2 & {
+  /** 별을 길게 늘이는 배율. 1이면 변형 없음 */
+  stretch: number;
+  /** 늘어나는 축의 각도(라디안) */
+  angle: number;
+};
+
+const MAX_PULL = 26;
+const TANGENT_RATIO = 0.85;
+const MAX_STRETCH = 3.4;
+
+/**
+ * 커서를 질량으로 삼아 반경 안의 별을 끌어당기고 휘게 만든다.
+ * 인력만 쓰면 별이 커서로 직진해 빨려드는 것처럼 보이므로,
+ * 수직 방향 접선 성분을 섞어 궤도를 도는 듯한 궤적을 만든다.
+ */
+export function applyGravity(point: Vec2, cursor: Vec2, radius: number): GravityResult {
+  const dx = cursor.x - point.x;
+  const dy = cursor.y - point.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance >= radius) {
+    return { x: point.x, y: point.y, stretch: 1, angle: 0 };
+  }
+
+  // 0으로 나누는 것을 막고, 커서와 겹친 별이 튀는 것도 함께 막는다
+  const safeDistance = Math.max(distance, 1);
+  const falloff = 1 - distance / radius;
+  const pull = falloff * falloff * MAX_PULL;
+
+  const nx = dx / safeDistance;
+  const ny = dy / safeDistance;
+
+  const x = point.x + nx * pull - ny * pull * TANGENT_RATIO;
+  const y = point.y + ny * pull + nx * pull * TANGENT_RATIO;
+
+  const stretch = Math.min(MAX_STRETCH, 1 + falloff * falloff * (MAX_STRETCH - 1));
+  const angle = Math.atan2(cursor.y - y, cursor.x - x) + Math.PI / 2;
+
+  return { x, y, stretch, angle };
+}

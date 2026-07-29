@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLayers, parallaxOffset, starPosition, wrap } from './field';
+import { applyGravity, createLayers, parallaxOffset, starPosition, wrap } from './field';
 import { resolveParams } from './params';
 
 /** 결정적 테스트를 위한 가짜 난수 — 항상 0.5를 반환한다 */
@@ -126,5 +126,53 @@ describe('wrap', () => {
 
   it('최댓값을 넘으면 처음으로 돌아온다', () => {
     expect(wrap(105, 100)).toBe(5);
+  });
+});
+
+describe('applyGravity', () => {
+  const cursor = { x: 500, y: 400 };
+  const radius = 170;
+
+  it('반경 밖의 별은 변형되지 않는다', () => {
+    const point = { x: 900, y: 400 };
+    const result = applyGravity(point, cursor, radius);
+    expect(result.x).toBe(point.x);
+    expect(result.y).toBe(point.y);
+    expect(result.stretch).toBe(1);
+  });
+
+  it('반경 경계에 있는 별은 변형되지 않는다', () => {
+    const point = { x: 500 + radius, y: 400 };
+    const result = applyGravity(point, cursor, radius);
+    expect(result.stretch).toBe(1);
+  });
+
+  it('반경 안의 별은 커서 쪽으로 끌려온다', () => {
+    const point = { x: 600, y: 400 };
+    const result = applyGravity(point, cursor, radius);
+    const before = Math.hypot(point.x - cursor.x, point.y - cursor.y);
+    const after = Math.hypot(result.x - cursor.x, result.y - cursor.y);
+    expect(after).toBeLessThan(before);
+  });
+
+  it('가까울수록 더 길게 늘어난다', () => {
+    const near = applyGravity({ x: 520, y: 400 }, cursor, radius);
+    const far = applyGravity({ x: 650, y: 400 }, cursor, radius);
+    expect(near.stretch).toBeGreaterThan(far.stretch);
+  });
+
+  it('늘어나는 배율에 상한이 있다', () => {
+    // 커서와 겹친 별이 무한히 늘어나 화면을 가로지르는 것을 막는다
+    const result = applyGravity({ x: 500, y: 400 }, cursor, radius);
+    expect(result.stretch).toBeLessThanOrEqual(3.4);
+    expect(Number.isFinite(result.x)).toBe(true);
+    expect(Number.isFinite(result.y)).toBe(true);
+  });
+
+  it('직선으로 끌려오지 않고 궤도 접선 성분이 섞인다', () => {
+    // 커서와 같은 y축에 있는 별이라면 순수 인력만으로는 y가 변하지 않는다.
+    // y가 변한다는 것은 접선 성분이 적용되었다는 뜻이다.
+    const result = applyGravity({ x: 600, y: 400 }, cursor, radius);
+    expect(result.y).not.toBe(400);
   });
 });
