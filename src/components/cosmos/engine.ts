@@ -43,7 +43,11 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
     canvas.height = Math.round(rect.height * dpr);
     // 위에서 null 체크했지만 클로저 안에서는 narrowing이 유지되지 않는다
     ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    layers = createLayers(params.starCount);
+    // 별의 좌표는 0~1로 정규화되어 있어 뷰포트가 바뀌어도 재생성할 필요가 없다.
+    // 최초 1회만 생성하고, 이후 리사이즈에서는 기존 배열을 그대로 재사용한다.
+    if (layers.length === 0) {
+      layers = createLayers(params.starCount);
+    }
   }
 
   function handleResize() {

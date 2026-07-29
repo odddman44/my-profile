@@ -115,4 +115,30 @@ describe('createCosmos', () => {
     handle.destroy();
     expect(() => handle.destroy()).not.toThrow();
   });
+
+  it('리사이즈해도 별을 재생성하지 않는다 (정규화 좌표를 재사용해야 분포가 유지된다)', () => {
+    // createLayers는 인자를 안 주면 Math.random을 기본값으로 사용해 별 좌표를 뽑는다.
+    // 이 인스턴스가 리사이즈마다 별을 다시 만든다면, 리사이즈할 때마다 Math.random 호출 수가
+    // 계속 늘어난다. 첫 번째 리사이즈 이후와 두 번째 리사이즈 이후의 누적 호출 수를 비교해
+    // "두 번째 리사이즈에서 추가로 재생성이 일어나는가"만 순수하게 관측한다 — 이렇게 하면
+    // 다른 테스트에서 destroy되지 않고 남아있는 인스턴스가 window resize 이벤트에 함께
+    // 반응하더라도(최초 1회성 잡음) 결과가 흔들리지 않는다.
+    const randomSpy = vi.spyOn(Math, 'random');
+    const { canvas } = stubCanvas();
+    const handle = createCosmos(canvas, desktop);
+
+    handle.start();
+
+    window.dispatchEvent(new Event('resize'));
+    vi.advanceTimersByTime(200);
+    const callsAfterFirstResize = randomSpy.mock.calls.length;
+
+    // iOS 주소창 접힘/펼침처럼 반복되는 리사이즈도 재생성을 유발하면 안 된다
+    window.dispatchEvent(new Event('resize'));
+    vi.advanceTimersByTime(200);
+    expect(randomSpy.mock.calls.length).toBe(callsAfterFirstResize);
+
+    handle.destroy();
+    randomSpy.mockRestore();
+  });
 });
