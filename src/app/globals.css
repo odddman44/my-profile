@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+:root {
+  --cosmos-bg: #03040a;
+  --cosmos-text: #eef2ff;
+  --cosmos-muted: #a9b4d4;
+  --cosmos-accent: #8b5cf6;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--cosmos-bg);
+}
+
+body {
+  background-color: transparent;
+  color: var(--cosmos-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 모션 감소 설정에서는 부드러운 스크롤도 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
