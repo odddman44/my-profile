@@ -15,12 +15,18 @@ function stubCanvas() {
     arc: vi.fn(() => { calls.arc++; }),
     ellipse: vi.fn(() => { calls.ellipse++; }),
     fill: vi.fn(),
+    stroke: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
     drawImage: vi.fn(),
     createRadialGradient: vi.fn(() => gradient),
     createLinearGradient: vi.fn(() => gradient),
     globalAlpha: 1,
     globalCompositeOperation: 'source-over',
     fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    lineCap: 'butt',
   };
   const canvas = {
     width: 0,

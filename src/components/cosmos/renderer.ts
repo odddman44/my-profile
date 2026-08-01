@@ -8,12 +8,26 @@ import {
 } from './field';
 import { NEBULA_BLOBS, blobFrame } from './nebula';
 import type { CosmosParams } from './params';
+import { projectWarpStar, type WarpStar } from './warp';
+import { ringRadii } from './orbit';
+import type { Phase } from '@/types';
 
 export type RenderState = {
   time: number;
   mouse: Vec2;
   cursor: Vec2;
   pointerActive: boolean;
+  /** 감속 진행도 0~1. 워프와 성좌의 교차 페이드에 쓴다 */
+  settleT: number;
+};
+
+export type DrawInput = {
+  layers: StarLayer[];
+  warpStars: WarpStar[];
+  state: RenderState;
+  params: CosmosParams;
+  viewport: Viewport;
+  phase: Phase;
 };
 
 const BACKGROUND = '#03040a';
@@ -88,6 +102,7 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
     state: RenderState,
     params: CosmosParams,
     viewport: Viewport,
+    alpha: number,
   ) {
     const useGravity = params.gravity && state.pointerActive;
 
@@ -110,7 +125,7 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
         }
 
         const twinkle = 0.62 + 0.38 * Math.sin(state.time * star.twinkleSpeed + star.twinklePhase);
-        ctx.globalAlpha = star.alpha * twinkle;
+        ctx.globalAlpha = star.alpha * twinkle * alpha;
         ctx.fillStyle = '#e6ecff';
         ctx.beginPath();
         if (stretch > 1.02) {
@@ -124,22 +139,54 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
     ctx.globalAlpha = 1;
   }
 
-  function drawVignette(viewport: Viewport) {
-    const start = viewport.height * 0.45;
-    const gradient = ctx.createLinearGradient(0, start, 0, viewport.height);
-    gradient.addColorStop(0, 'rgba(3,4,10,0)');
-    gradient.addColorStop(1, 'rgba(3,4,10,0.55)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, start, viewport.width, viewport.height - start);
+  function drawWarp(warpStars: WarpStar[], viewport: Viewport, alpha: number) {
+    if (alpha <= 0.01) return;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#e6ecff';
+    for (const star of warpStars) {
+      const p = projectWarpStar(star, viewport);
+      ctx.globalAlpha = Math.min(1, p.near * 2.2) * alpha;
+      ctx.lineWidth = 0.4 + p.near * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(p.px, p.py);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawOrbitRings(viewport: Viewport, alpha: number) {
+    if (alpha <= 0.01) return;
+    const cx = viewport.width / 2;
+    const cy = viewport.height * 0.46;
+    ctx.globalAlpha = alpha * 0.1;
+    ctx.strokeStyle = 'rgba(160,180,255,1)';
+    ctx.lineWidth = 1;
+    for (const radius of ringRadii(viewport)) {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radius, radius * 0.34, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   return {
-    draw(layers: StarLayer[], state: RenderState, params: CosmosParams, viewport: Viewport) {
+    draw({ layers, warpStars, state, params, viewport, phase }: DrawInput) {
       ctx.fillStyle = BACKGROUND;
       ctx.fillRect(0, 0, viewport.width, viewport.height);
+
+      if (phase === 'warp') {
+        drawNebula(state, params, viewport);
+        drawWarp(warpStars, viewport, 1);
+        return;
+      }
+
+      // 감속 구간에서는 워프가 사라지며 성좌가 떠오른다. 컷 없이 이어지게 만드는 지점이다.
+      const settled = state.settleT;
       drawNebula(state, params, viewport);
-      drawStars(layers, state, params, viewport);
-      drawVignette(viewport);
+      if (settled < 1) drawWarp(warpStars, viewport, 1 - settled);
+      drawStars(layers, state, params, viewport, settled);
+      drawOrbitRings(viewport, settled);
     },
   };
 }

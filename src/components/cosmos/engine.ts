@@ -32,6 +32,7 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
     mouse: { x: 0, y: 0 },
     cursor: { x: 0, y: 0 },
     pointerActive: false,
+    settleT: 1,
   };
 
   function resize() {
@@ -85,7 +86,14 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
     state.mouse.x += (target.x - state.mouse.x) * EASING;
     state.mouse.y += (target.y - state.mouse.y) * EASING;
 
-    renderer.draw(layers, state, params, viewport);
+    renderer.draw({
+      layers,
+      warpStars: [],
+      state,
+      params,
+      viewport,
+      phase: 'orbit',
+    });
 
     if (params.animate) {
       frameId = requestAnimationFrame(frame);
