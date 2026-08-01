@@ -19,10 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="min-h-screen antialiased">
-        {/* JS가 꺼지면 Reveal의 visible 상태가 절대 true가 되지 않아 콘텐츠가 opacity-0로 고정된다 — 이를 강제로 무효화한다 */}
-        <noscript>
-          <style>{`[data-reveal]{opacity:1!important;transform:none!important}`}</style>
-        </noscript>
         <CosmosBackground />
         {children}
       </body>
