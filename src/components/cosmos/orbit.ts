@@ -1,4 +1,5 @@
 import type { Viewport } from './field';
+import type { CosmosParams } from './params';
 
 export type OrbitSlot = {
   id: string;
@@ -93,4 +94,78 @@ export function orbitPositions(
 export function frontMostId(positions: OrbitPosition[]): string | null {
   if (positions.length === 0) return null;
   return positions.reduce((best, p) => (p.depth > best.depth ? p : best)).id;
+}
+
+export type RotationState = {
+  angle: number;
+  velocity: number;
+  /** 정면 정렬 목표 각도. null이면 자유 회전 */
+  target: number | null;
+};
+
+/** 목표에 다가가는 감쇠 계수 */
+const AIM_EASING = 0.09;
+/** 목표에 이 정도까지 붙으면 도착으로 본다 */
+const AIM_EPSILON = 0.002;
+/** 관성이 기본 속도로 되돌아가는 감쇠 계수 */
+const INERTIA_DECAY = 0.03;
+/** 드래그 1px당 회전량 */
+const DRAG_TO_ANGLE = 0.004;
+/** 드래그 1px당 남는 관성 */
+const DRAG_TO_VELOCITY = 0.0009;
+/** 정면으로 보는 각도. 타원의 아래쪽 끝이며 sin이 최대인 지점이다 */
+const FRONT_ANGLE = Math.PI / 2;
+
+export function createRotation(params: CosmosParams): RotationState {
+  return { angle: 0, velocity: params.autoRotate, target: null };
+}
+
+export function advanceRotation(
+  state: RotationState,
+  params: CosmosParams,
+  paused: boolean,
+): RotationState {
+  if (paused) return state;
+
+  if (state.target !== null) {
+    const angle = state.angle + (state.target - state.angle) * AIM_EASING;
+    if (Math.abs(state.target - angle) < AIM_EPSILON) {
+      return { angle: state.target, velocity: params.autoRotate, target: null };
+    }
+    return { ...state, angle };
+  }
+
+  if (!params.inertia) {
+    return { ...state, angle: state.angle + params.autoRotate, velocity: 0 };
+  }
+
+  return {
+    angle: state.angle + state.velocity,
+    velocity: state.velocity + (params.autoRotate - state.velocity) * INERTIA_DECAY,
+    target: null,
+  };
+}
+
+export function dragRotation(
+  state: RotationState,
+  deltaX: number,
+  params: CosmosParams,
+): RotationState {
+  return {
+    angle: state.angle + deltaX * DRAG_TO_ANGLE,
+    velocity: params.inertia ? deltaX * DRAG_TO_VELOCITY : 0,
+    target: null,
+  };
+}
+
+/** 지정한 슬롯이 정면에 오도록 목표 각도를 세운다 */
+export function aimAt(state: RotationState, slot: OrbitSlot): RotationState {
+  const want = FRONT_ANGLE - slot.baseAngle;
+  // 한 바퀴 돌지 않고 가까운 쪽으로 돌린다
+  const delta = (((want - state.angle + Math.PI) % TAU) + TAU) % TAU - Math.PI;
+  return { ...state, target: state.angle + delta, velocity: 0 };
+}
+
+export function isSettled(state: RotationState): boolean {
+  return state.target === null;
 }
