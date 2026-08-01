@@ -20,8 +20,13 @@ export type OrbitPosition = {
 const TAU = Math.PI * 2;
 /** 궤도 반경 비율. 인덱스가 곧 ring 번호다 */
 const RING_RATIO = [0.3, 0.43, 0.2];
-/** 타원의 세로 납작함. 1이면 정원이고 작을수록 눕는다 */
-const Y_RATIO = 0.34;
+/** 타원의 세로 납작함. 1이면 정원이고 작을수록 눕는다. renderer.ts가 궤도선을 그릴 때도 이 값을 쓴다 */
+export const Y_RATIO = 0.34;
+/**
+ * 궤도 중심의 세로 위치 비율 (뷰포트 높이 기준).
+ * renderer.ts(궤도선)와 CoreStar.tsx(중심 항성 위치)도 이 값에 맞춰야 한다.
+ */
+export const CENTER_Y_RATIO = 0.46;
 /** 한 궤도가 감당하는 최대 개수. 넘으면 궤도를 하나 더 쓴다 */
 const MAX_PER_RING = 10;
 
@@ -64,7 +69,7 @@ export function orbitPositions(
   settleT: number,
 ): OrbitPosition[] {
   const cx = viewport.width / 2;
-  const cy = viewport.height * 0.46;
+  const cy = viewport.height * CENTER_Y_RATIO;
   const radii = ringRadii(viewport);
   const spreadOut = 1 - settleT;
   const farDistance = Math.max(viewport.width, viewport.height) * 1.1;
@@ -125,8 +130,10 @@ export function advanceRotation(
   params: CosmosParams,
   paused: boolean,
 ): RotationState {
-  if (paused) return state;
-
+  // 조준(aim)은 사용자가 클릭으로 명시적으로 요청한 이동이므로,
+  // 패널이 열려 paused가 되어도 끝까지 진행되어야 한다.
+  // paused는 자동 회전·관성 같은 "배경 움직임"만 멈추는 것이지,
+  // 사용자가 요청한 이동까지 막아서는 안 된다.
   if (state.target !== null) {
     const angle = state.angle + (state.target - state.angle) * AIM_EASING;
     if (Math.abs(state.target - angle) < AIM_EPSILON) {
@@ -134,6 +141,8 @@ export function advanceRotation(
     }
     return { ...state, angle };
   }
+
+  if (paused) return state;
 
   if (!params.inertia) {
     return { ...state, angle: state.angle + params.autoRotate, velocity: 0 };

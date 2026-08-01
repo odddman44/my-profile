@@ -9,6 +9,7 @@ import {
   isSettled,
   orbitPositions,
   ringRadii,
+  type RotationState,
 } from './orbit';
 import { resolveParams } from './params';
 
@@ -141,7 +142,7 @@ describe('advanceRotation', () => {
   });
 
   it('관성이 기본 속도로 수렴한다', () => {
-    let s = { angle: 0, velocity: 0.08, target: null };
+    let s: RotationState = { angle: 0, velocity: 0.08, target: null };
     for (let i = 0; i < 300; i++) s = advanceRotation(s, desktopParams, false);
     expect(s.velocity).toBeCloseTo(desktopParams.autoRotate, 4);
   });
@@ -195,6 +196,19 @@ describe('aimAt', () => {
     // 목표까지의 회전량은 절대 π를 넘지 않아야 한다
     const s = aimAt({ angle: 3, velocity: 0, target: null }, slot);
     expect(Math.abs(s.target! - 3)).toBeLessThanOrEqual(Math.PI + 1e-9);
+  });
+
+  // F-1: 별 클릭 → aim() 설정 → 같은 프레임에 패널이 열려 setPaused(true) 호출,
+  // 이 순서가 항상 일어나므로 paused 상태에서도 조준은 끝까지 진행되어야 한다.
+  // 그렇지 않으면 별이 정면으로 오지 않은 채 패널만 열리고, 패널을 닫을 때
+  // 비로소 밀린 회전이 실행되어 "패널을 닫자 갑자기 도는" 현상이 생긴다.
+  it('패널이 열려 회전이 일시정지되어도 조준은 끝까지 진행되어 정면에 도달한다', () => {
+    let s = aimAt(createRotation(desktopParams), slot);
+    for (let i = 0; i < 400 && s.target !== null; i++) {
+      s = advanceRotation(s, desktopParams, true);
+    }
+    expect(s.target).toBeNull();
+    expect(Math.sin(slot.baseAngle + s.angle)).toBeCloseTo(1, 2);
   });
 });
 
