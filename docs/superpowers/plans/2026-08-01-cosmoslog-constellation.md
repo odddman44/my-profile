@@ -1852,7 +1852,7 @@ git commit -m "refactor: 엔진에 페이즈 루프와 DOM 위치 갱신 추가
 `src/components/stage/stars.test.tsx`:
 
 ```typescript
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CoreStar } from './CoreStar';
 import { StarLink } from './StarLink';
@@ -1929,6 +1929,21 @@ describe('StarLink', () => {
     render(<StarLink {...base} isFront={false} />);
     expect(screen.getByText('todo')).toBeDefined();
   });
+
+  it('평범한 클릭은 패널을 연다', () => {
+    const onOpen = vi.fn();
+    render(<StarLink {...base} isFront={false} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole('link'));
+    expect(onOpen).toHaveBeenCalledWith('todo');
+  });
+
+  it('새 탭으로 여는 클릭은 브라우저에 맡긴다', () => {
+    // 링크처럼 생긴 것이 ⌘+클릭에 반응하지 않으면 고장으로 받아들여진다
+    const onOpen = vi.fn();
+    render(<StarLink {...base} isFront={false} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole('link'), { metaKey: true });
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });
 ```
 
@@ -2000,7 +2015,10 @@ export const StarLink = forwardRef<HTMLAnchorElement, Props>(function StarLink(
       rel="noopener noreferrer"
       data-star={id}
       onClick={(event) => {
-        // 첫 클릭은 패널을 여는 데 쓴다. 링크로 나가는 것은 패널 안의 버튼이 맡는다.
+        // 새 탭(⌘/Ctrl)·새 창(Shift)으로 여는 조작은 브라우저에 맡긴다.
+        // 링크처럼 생긴 것이 링크처럼 동작하지 않으면 사용자는 고장으로 받아들인다.
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        // 평범한 클릭은 패널을 여는 데 쓴다. 실제 이동은 패널 안의 링크가 맡는다.
         event.preventDefault();
         onOpen(id);
       }}
@@ -2132,6 +2150,25 @@ describe('StarPanel', () => {
     render(<StarPanel content={project} onClose={() => {}} />);
     expect(screen.getByRole('dialog')).toBeDefined();
   });
+
+  it('열리면 패널로 포커스를 옮긴다', () => {
+    // 포커스가 별에 남아 있으면 키보드 사용자는 나머지 별을 전부 지나야 패널에 닿는다
+    render(<StarPanel content={project} onClose={() => {}} />);
+    expect(document.activeElement).toBe(screen.getByRole('dialog'));
+  });
+
+  it('닫히면 원래 있던 요소로 포커스를 되돌린다', () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { rerender } = render(<StarPanel content={project} onClose={() => {}} />);
+    expect(document.activeElement).not.toBe(trigger);
+
+    rerender(<StarPanel content={null} onClose={() => {}} />);
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
 });
 ```
 
@@ -2147,7 +2184,7 @@ Expected: FAIL — 모듈을 찾을 수 없음
 ```tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ProjectStatus } from '@/types';
 
 export type PanelContent = {
@@ -2165,6 +2202,8 @@ type Props = {
 };
 
 export function StarPanel({ content, onClose }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!content) return;
     function onKeyDown(event: KeyboardEvent) {
@@ -2174,14 +2213,24 @@ export function StarPanel({ content, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [content, onClose]);
 
+  useEffect(() => {
+    if (!content) return;
+    // 별에서 Enter로 열었을 때 포커스가 별에 남으면 패널까지 Tab을 여러 번 눌러야 한다
+    const previous = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => previous?.focus?.();
+  }, [content]);
+
   if (!content) return null;
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="false"
       aria-label={content.title}
-      className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-white/12 bg-[rgba(8,10,22,0.9)] p-6 backdrop-blur-md sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[22rem] sm:-translate-x-1/2 sm:-translate-y-1/2"
+      tabIndex={-1}
+      className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-white/12 bg-[rgba(8,10,22,0.9)] p-6 backdrop-blur-md focus:outline-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[22rem] sm:-translate-x-1/2 sm:-translate-y-1/2"
     >
       <div className="mb-2 flex items-center gap-3">
         <h2 className="text-lg font-semibold text-[#f2f5ff]">{content.title}</h2>
