@@ -8,19 +8,12 @@
 }
 
 html {
-  scroll-behavior: smooth;
   background-color: var(--cosmos-bg);
 }
 
 body {
   background-color: transparent;
   color: var(--cosmos-text);
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
-}
-
-/* 모션 감소 설정에서는 부드러운 스크롤도 끈다 */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
 }

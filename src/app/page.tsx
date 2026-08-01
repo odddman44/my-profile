@@ -1,11 +1,5 @@
-import { profile } from '@/data/profile';
+import { Stage } from '@/components/stage/Stage';
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <p className="text-[color:var(--cosmos-muted)]">
-        {profile.displayName} · {profile.role}
-      </p>
-    </main>
-  );
+  return <Stage />;
 }
