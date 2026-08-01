@@ -223,6 +223,33 @@ describe('DOM 노드 배치', () => {
     h.destroy();
   });
 
+  // F-5: 워프 동안 opacity만 0이면 앵커가 여전히 탭 순서에 남아, 키보드 사용자가
+  // Tab을 누를 때마다 보이지 않는 별을 차례로 지나치게 된다(WCAG 2.4.7). jsdom의
+  // canvas.getContext('2d')는 null이라 React 테스트는 엔진을 우회하므로, 여기서
+  // stubCanvas로 실제 getContext를 흉내 내 엔진 레벨에서 검증한다.
+  it('워프 동안 별 요소는 visibility:hidden이라 탭 순서에서 빠진다', () => {
+    const { canvas } = stubCanvas();
+    const nodes = stubNodes(['todo', 'blog']);
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.setNodes(nodes);
+    h.start();
+    expect(nodes[0].element.style.opacity).toBe('0');
+    expect(nodes[0].element.style.visibility).toBe('hidden');
+    h.destroy();
+  });
+
+  it('성좌 단계에 들어오면 별 요소가 다시 visibility:visible이 된다', () => {
+    const { canvas } = stubCanvas();
+    const nodes = stubNodes(['todo', 'blog']);
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.setNodes(nodes);
+    h.start();
+    h.enter();
+    vi.advanceTimersByTime(16 * 120);
+    expect(nodes[0].element.style.visibility).toBe('visible');
+    h.destroy();
+  });
+
   it('start 전에 setNodes를 호출해도 뷰포트가 잡히고 transform이 채워진다', () => {
     // setNodes -> start 순서로 부르는 소비자가 있다. resize()가 start()에서만
     // 일어나면 이 순서에서 뷰포트가 0x0으로 영원히 고정된다.
@@ -236,6 +263,35 @@ describe('DOM 노드 배치', () => {
     h.start();
     expect(canvas.width).toBeGreaterThan(0);
     expect(nodes[0].element.style.transform).toContain('translate3d');
+    h.destroy();
+  });
+});
+
+describe('중심 항성(코어) 시각성', () => {
+  // F-4: CoreStar가 항상 렌더링되어 워프 첫 프레임부터 이름·역할이 화면 중앙에
+  // 떠 있었다. 별과 같은 settleT 메커니즘을 그대로 태워 "감속 중 항성이 점화된다"는
+  // 스펙(§4)을 만족시키고, F-5와 같은 이유로 보이지 않을 때는 포커스도 받지 않아야 한다.
+  it('워프 동안에는 코어 요소도 opacity 0 · visibility hidden이다', () => {
+    const { canvas } = stubCanvas();
+    const core = document.createElement('button');
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.setCoreElement(core);
+    h.start();
+    expect(core.style.opacity).toBe('0');
+    expect(core.style.visibility).toBe('hidden');
+    h.destroy();
+  });
+
+  it('성좌 단계에 들어오면 코어 요소가 보이고 상호작용 가능해진다', () => {
+    const { canvas } = stubCanvas();
+    const core = document.createElement('button');
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.setCoreElement(core);
+    h.start();
+    h.enter();
+    vi.advanceTimersByTime(16 * 120);
+    expect(core.style.visibility).toBe('visible');
+    expect(Number(core.style.opacity)).toBeGreaterThan(0);
     h.destroy();
   });
 });
@@ -268,9 +324,11 @@ describe('회전 조작', () => {
     h.destroy();
   });
 
-  it('일시정지 중 조준이 진행돼도 프레임을 무한히 예약하지 않는다', () => {
-    // aim()이 rotation.target을 세운 채로 일시정지되면, keepGoing이 target만 보고
-    // paused를 무시할 경우 모션 감소 설정에서도 60fps로 영원히 다시 그리게 된다.
+  it('일시정지 중 조준이 진행되면 수렴할 때까지만 프레임을 그리고 스스로 멈춘다', () => {
+    // F-1: 조준은 사용자가 요청한 이동이므로 paused여도 진행되어야 한다(약 78프레임).
+    // 이전에는 keepGoing이 target과 함께 !paused를 봐서 조준이 아예 진행되지 않았고,
+    // 그 결과 "무한 루프 방지"를 조준을 멈추는 방식으로 해결했었다. 이제는 target이
+    // paused와 무관하게 수렴하므로, 루프도 수렴 후 스스로 멈추는지를 검증해야 한다.
     const { canvas, ctx } = stubCanvas();
     const nodes = stubNodes(['todo', 'blog']);
     const h = createCosmos(canvas, reduced, noopCallbacks());
@@ -281,8 +339,14 @@ describe('회전 조작', () => {
 
     const fillRect = ctx.fillRect as ReturnType<typeof vi.fn>;
     const callsAfterAim = fillRect.mock.calls.length;
+    // 수렴에 필요한 것보다 훨씬 긴 시간(300프레임)을 흘려보낸다
     vi.advanceTimersByTime(16 * 300);
-    expect(fillRect.mock.calls.length - callsAfterAim).toBeLessThan(5);
+    const callsAt300 = fillRect.mock.calls.length - callsAfterAim;
+    expect(callsAt300).toBeGreaterThan(0);
+
+    // 더 시간이 흘러도 더 이상 그리지 않아야 한다 — 루프가 스스로 멈췄다는 뜻이다
+    vi.advanceTimersByTime(16 * 300);
+    expect(fillRect.mock.calls.length - callsAfterAim).toBe(callsAt300);
     h.destroy();
   });
 });

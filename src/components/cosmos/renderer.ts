@@ -9,7 +9,7 @@ import {
 import { NEBULA_BLOBS, blobFrame } from './nebula';
 import type { CosmosParams } from './params';
 import { projectWarpStar, type WarpStar } from './warp';
-import { ringRadii } from './orbit';
+import { CENTER_Y_RATIO, ringRadii, Y_RATIO } from './orbit';
 import type { Phase } from '@/types';
 
 export type RenderState = {
@@ -28,6 +28,8 @@ export type DrawInput = {
   params: CosmosParams;
   viewport: Viewport;
   phase: Phase;
+  /** 실제로 별이 배정된 궤도 번호. 비어 있는 궤도는 그리지 않는다 */
+  occupiedRings: Set<number>;
 };
 
 const BACKGROUND = '#03040a';
@@ -155,23 +157,27 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
     ctx.globalAlpha = 1;
   }
 
-  function drawOrbitRings(viewport: Viewport, alpha: number) {
+  function drawOrbitRings(viewport: Viewport, alpha: number, occupiedRings: Set<number>) {
     if (alpha <= 0.01) return;
     const cx = viewport.width / 2;
-    const cy = viewport.height * 0.46;
+    const cy = viewport.height * CENTER_Y_RATIO;
     ctx.globalAlpha = alpha * 0.1;
     ctx.strokeStyle = 'rgba(160,180,255,1)';
     ctx.lineWidth = 1;
-    for (const radius of ringRadii(viewport)) {
+    const radii = ringRadii(viewport);
+    // 실제로 별이 배정되지 않은 궤도(예비 궤도 등)는 그리지 않는다
+    for (let i = 0; i < radii.length; i++) {
+      if (!occupiedRings.has(i)) continue;
+      const radius = radii[i];
       ctx.beginPath();
-      ctx.ellipse(cx, cy, radius, radius * 0.34, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy, radius, radius * Y_RATIO, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
 
   return {
-    draw({ layers, warpStars, state, params, viewport, phase }: DrawInput) {
+    draw({ layers, warpStars, state, params, viewport, phase, occupiedRings }: DrawInput) {
       ctx.fillStyle = BACKGROUND;
       ctx.fillRect(0, 0, viewport.width, viewport.height);
 
@@ -186,7 +192,7 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
       drawNebula(state, params, viewport);
       if (settled < 1) drawWarp(warpStars, viewport, 1 - settled);
       drawStars(layers, state, params, viewport, settled);
-      drawOrbitRings(viewport, settled);
+      drawOrbitRings(viewport, settled, occupiedRings);
     },
   };
 }

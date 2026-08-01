@@ -35,10 +35,19 @@ export type CosmosHandle = {
   destroy(): void;
   enter(): void;
   setNodes(nodes: StageNode[]): void;
+  setCoreElement(element: HTMLElement | null): void;
   setPaused(paused: boolean): void;
   drag(deltaX: number): void;
   aim(id: string): void;
 };
+
+/** settleT에 맞춰 opacity와 탭 순서 포함 여부를 함께 제어한다 (F-4, F-5) */
+function applyVisibility(element: HTMLElement, settleT: number) {
+  element.style.opacity = String(settleT);
+  // settleT가 0(워프 중)이면 화면에 보이지 않는데도 앵커/버튼이 탭 순서에는 남는다.
+  // display:none은 레이아웃을 흔들고 no-JS/크롤러 보장을 해치므로 visibility로만 뺀다.
+  element.style.visibility = settleT === 0 ? 'hidden' : 'visible';
+}
 
 /** 마우스 추적 감쇠 계수 */
 const EASING = 0.045;
@@ -54,7 +63,7 @@ export function createCosmos(
   if (!ctx) {
     return {
       start() {}, stop() {}, destroy() {}, enter() {},
-      setNodes() {}, setPaused() {}, drag() {}, aim() {},
+      setNodes() {}, setCoreElement() {}, setPaused() {}, drag() {}, aim() {},
     };
   }
 
@@ -63,6 +72,7 @@ export function createCosmos(
   let layers: StarLayer[] = [];
   const warpStars: WarpStar[] = createWarpStars(params.warpStarCount);
   let nodes: StageNode[] = [];
+  let coreElement: HTMLElement | null = null;
   let phaseState: PhaseState = createPhaseState(params.skipIntro);
   let rotation: RotationState = createRotation(params);
   let paused = false;
@@ -103,7 +113,7 @@ export function createCosmos(
       // React 상태를 거치지 않고 DOM에 직접 쓴다. 리렌더가 발생하지 않는다.
       node.element.style.transform =
         `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${p.scale.toFixed(3)})`;
-      node.element.style.opacity = String(phaseState.settleT);
+      applyVisibility(node.element, phaseState.settleT);
       node.element.style.zIndex = String(Math.round(p.depth * 10) + 20);
     }
 
@@ -113,6 +123,11 @@ export function createCosmos(
       lastFront = front;
       callbacks.onFront(front);
     }
+  }
+
+  /** 중심 항성(코어)도 별과 같은 settleT로 점화된다 — 워프 중에는 숨고 조작도 받지 않는다 */
+  function placeCore() {
+    if (coreElement) applyVisibility(coreElement, phaseState.settleT);
   }
 
   function notifyPhase() {
@@ -146,15 +161,25 @@ export function createCosmos(
       rotation = advanceRotation(rotation, params, paused);
     }
 
-    renderer.draw({ layers, warpStars, state, params, viewport, phase: phaseState.phase });
+    renderer.draw({
+      layers,
+      warpStars,
+      state,
+      params,
+      viewport,
+      phase: phaseState.phase,
+      occupiedRings: new Set(nodes.map((n) => n.ring)),
+    });
     placeNodes();
+    placeCore();
     notifyPhase();
 
     // 모션 감소 설정에서는 계속 돌리지 않는다. 조작이 있을 때만 다시 그린다.
-    // 일시정지 중에는 aim이 남아 있어도 advanceRotation이 target을 소모하지 않으므로
-    // paused를 함께 봐야 한다. 그렇지 않으면 target이 남은 채로 영원히 다시 예약된다.
+    // target이 남아 있으면 paused여도 advanceRotation이 매 프레임 소모하므로
+    // (F-1) 여기서도 paused와 무관하게 target만 보면 된다. target은 ~78프레임 안에
+    // 반드시 null로 수렴하므로 루프가 무한히 예약되지는 않는다.
     const keepGoing =
-      params.animate || phaseState.phase !== 'orbit' || (rotation.target !== null && !paused);
+      params.animate || phaseState.phase !== 'orbit' || rotation.target !== null;
     frameId = keepGoing && !destroyed ? requestAnimationFrame(frame) : null;
   }
 
@@ -218,6 +243,10 @@ export function createCosmos(
       nodes = next;
       placeNodes();
       requestFrame();
+    },
+    setCoreElement(element) {
+      coreElement = element;
+      placeCore();
     },
     setPaused(next) {
       paused = next;
