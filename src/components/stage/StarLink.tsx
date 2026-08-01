@@ -23,6 +23,8 @@ export const StarLink = forwardRef<HTMLAnchorElement, Props>(function StarLink(
       target="_blank"
       rel="noopener noreferrer"
       data-star={id}
+      // onFocus는 의도적으로 달지 않는다. 포커스로 궤도를 돌리면 Tab을 누를 때마다
+      // 화면 전체가 회전해 키보드 사용자가 방향 감각을 잃는다. 회전은 명시적인 클릭에서만 일어난다.
       onClick={(event) => {
         // 새 탭(⌘/Ctrl)·새 창(Shift)으로 여는 조작은 브라우저에 맡긴다.
         // 링크처럼 생긴 것이 링크처럼 동작하지 않으면 사용자는 고장으로 받아들인다.
