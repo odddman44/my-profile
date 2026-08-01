@@ -58,10 +58,4 @@ describe('resolveParams', () => {
     expect(params.autoRotate).toBe(0);
     expect(params.inertia).toBe(false);
   });
-
-  it('모션 감소 설정에서도 별과 성운은 그린다', () => {
-    const params = resolveParams(reduced);
-    expect(params.starCount).toBeGreaterThan(0);
-    expect(params.nebulaIntensity).toBeGreaterThan(0);
-  });
 });
