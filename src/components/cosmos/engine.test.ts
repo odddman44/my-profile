@@ -2,22 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCosmos } from './engine';
 import { resolveParams } from './params';
 
-/** jsdom에 2D 컨텍스트가 없으므로 호출만 기록하는 스텁을 만든다 */
 function stubCanvas() {
-  const calls = { fillRect: 0, arc: 0, ellipse: 0 };
   const gradient = { addColorStop: vi.fn() };
   const ctx = {
     canvas: { width: 0, height: 0 },
     setTransform: vi.fn(),
     clearRect: vi.fn(),
-    fillRect: vi.fn(() => { calls.fillRect++; }),
+    fillRect: vi.fn(),
     beginPath: vi.fn(),
-    arc: vi.fn(() => { calls.arc++; }),
-    ellipse: vi.fn(() => { calls.ellipse++; }),
-    fill: vi.fn(),
-    stroke: vi.fn(),
+    arc: vi.fn(),
+    ellipse: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
+    stroke: vi.fn(),
+    fill: vi.fn(),
     drawImage: vi.fn(),
     createRadialGradient: vi.fn(() => gradient),
     createLinearGradient: vi.fn(() => gradient),
@@ -33,14 +31,26 @@ function stubCanvas() {
     height: 0,
     style: {},
     getContext: () => ctx,
-    getBoundingClientRect: () => ({ width: 1000, height: 800, left: 0, top: 0 }),
+    getBoundingClientRect: () => ({ width: 1200, height: 800, left: 0, top: 0 }),
   } as unknown as HTMLCanvasElement;
+  return { canvas, ctx };
+}
 
-  return { canvas, ctx, calls };
+function stubNodes(ids: string[]) {
+  return ids.map((id, i) => ({
+    id,
+    ring: 0,
+    baseAngle: (i / ids.length) * Math.PI * 2,
+    element: document.createElement('a'),
+  }));
 }
 
 const desktop = resolveParams({ hasFinePointer: true, prefersReducedMotion: false });
 const reduced = resolveParams({ hasFinePointer: true, prefersReducedMotion: true });
+
+function noopCallbacks() {
+  return { onFront: vi.fn(), onPhase: vi.fn(), onEnterVisible: vi.fn() };
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -55,95 +65,156 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('createCosmos', () => {
-  it('start 전에는 아무것도 그리지 않는다', () => {
-    const { canvas, calls } = stubCanvas();
-    createCosmos(canvas, desktop);
-    expect(calls.arc).toBe(0);
+describe('createCosmos 생명주기', () => {
+  it('start 전에는 그리지 않는다', () => {
+    const { canvas, ctx } = stubCanvas();
+    createCosmos(canvas, desktop, noopCallbacks());
+    expect(ctx.fillRect).not.toHaveBeenCalled();
   });
 
-  it('start하면 별을 그린다', () => {
-    const { canvas, calls } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
-    handle.start();
-    expect(calls.arc).toBeGreaterThan(0);
+  it('start하면 그린다', () => {
+    const { canvas, ctx } = stubCanvas();
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.start();
+    expect(ctx.fillRect).toHaveBeenCalled();
+    h.destroy();
   });
 
-  it('애니메이션이 켜져 있으면 프레임이 반복된다', () => {
-    const { canvas, calls } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
-    handle.start();
-    const afterFirst = calls.arc;
-    vi.advanceTimersByTime(100);
-    expect(calls.arc).toBeGreaterThan(afterFirst);
-    handle.destroy();
-  });
-
-  it('모션 감소 설정에서는 한 프레임만 그리고 멈춘다', () => {
-    const { canvas, calls } = stubCanvas();
-    const handle = createCosmos(canvas, reduced);
-    handle.start();
-    const afterFirst = calls.arc;
-    vi.advanceTimersByTime(500);
-    expect(calls.arc).toBe(afterFirst);
-    handle.destroy();
-  });
-
-  it('stop하면 프레임이 더 이상 진행되지 않는다', () => {
-    const { canvas, calls } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
-    handle.start();
-    handle.stop();
-    const afterStop = calls.arc;
-    vi.advanceTimersByTime(200);
-    expect(calls.arc).toBe(afterStop);
-    handle.destroy();
-  });
-
-  it('destroy하면 window 이벤트 리스너가 모두 해제된다', () => {
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
+  it('destroy하면 window 이벤트를 모두 해제한다', () => {
+    const spy = vi.spyOn(window, 'removeEventListener');
     const { canvas } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
-    handle.start();
-    handle.destroy();
-
-    const removed = removeSpy.mock.calls.map((call) => call[0]);
-    expect(removed).toContain('mousemove');
-    expect(removed).toContain('resize');
-    removeSpy.mockRestore();
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.start();
+    h.destroy();
+    const removed = spy.mock.calls.map((c) => c[0]);
+    for (const name of ['pointermove', 'resize']) expect(removed).toContain(name);
+    spy.mockRestore();
   });
 
-  it('destroy를 두 번 호출해도 예외가 나지 않는다', () => {
+  it('destroy를 두 번 호출해도 예외가 없다', () => {
     const { canvas } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
-    handle.start();
-    handle.destroy();
-    expect(() => handle.destroy()).not.toThrow();
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.start();
+    h.destroy();
+    expect(() => h.destroy()).not.toThrow();
+  });
+});
+
+describe('페이즈 진행', () => {
+  it('처음에는 워프 단계를 알린다', () => {
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, desktop, cb);
+    h.start();
+    expect(cb.onPhase).toHaveBeenCalledWith('warp');
+    h.destroy();
   });
 
-  it('리사이즈해도 별을 재생성하지 않는다 (정규화 좌표를 재사용해야 분포가 유지된다)', () => {
-    // createLayers는 인자를 안 주면 Math.random을 기본값으로 사용해 별 좌표를 뽑는다.
-    // 이 인스턴스가 리사이즈마다 별을 다시 만든다면, 리사이즈할 때마다 Math.random 호출 수가
-    // 계속 늘어난다. 첫 번째 리사이즈 이후와 두 번째 리사이즈 이후의 누적 호출 수를 비교해
-    // "두 번째 리사이즈에서 추가로 재생성이 일어나는가"만 순수하게 관측한다 — 이렇게 하면
-    // 다른 테스트에서 destroy되지 않고 남아있는 인스턴스가 window resize 이벤트에 함께
-    // 반응하더라도(최초 1회성 잡음) 결과가 흔들리지 않는다.
-    const randomSpy = vi.spyOn(Math, 'random');
+  it('2초가 지나면 진입 버튼을 띄우라고 알린다', () => {
     const { canvas } = stubCanvas();
-    const handle = createCosmos(canvas, desktop);
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, desktop, cb);
+    h.start();
+    vi.advanceTimersByTime(16 * 130);
+    expect(cb.onEnterVisible).toHaveBeenCalledWith(true);
+    h.destroy();
+  });
 
-    handle.start();
+  it('enter를 부르면 결국 성좌에 도달한다', () => {
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, desktop, cb);
+    h.start();
+    h.enter();
+    vi.advanceTimersByTime(16 * 120);
+    expect(cb.onPhase).toHaveBeenCalledWith('orbit');
+    h.destroy();
+  });
 
-    window.dispatchEvent(new Event('resize'));
-    vi.advanceTimersByTime(200);
-    const callsAfterFirstResize = randomSpy.mock.calls.length;
+  it('모션 감소 설정이면 워프 없이 성좌에서 시작한다', () => {
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, reduced, cb);
+    h.start();
+    expect(cb.onPhase).toHaveBeenCalledWith('orbit');
+    expect(cb.onPhase).not.toHaveBeenCalledWith('warp');
+    h.destroy();
+  });
+});
 
-    // iOS 주소창 접힘/펼침처럼 반복되는 리사이즈도 재생성을 유발하면 안 된다
-    window.dispatchEvent(new Event('resize'));
-    vi.advanceTimersByTime(200);
-    expect(randomSpy.mock.calls.length).toBe(callsAfterFirstResize);
+describe('DOM 노드 배치', () => {
+  it('성좌 단계에서 노드에 transform을 쓴다', () => {
+    const { canvas } = stubCanvas();
+    const nodes = stubNodes(['todo', 'blog']);
+    const h = createCosmos(canvas, reduced, noopCallbacks());
+    h.setNodes(nodes);
+    h.start();
+    expect(nodes[0].element.style.transform).toContain('translate3d');
+    h.destroy();
+  });
 
-    handle.destroy();
-    randomSpy.mockRestore();
+  it('React 상태를 거치지 않고 정면 별을 알린다', () => {
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, reduced, cb);
+    h.setNodes(stubNodes(['todo', 'blog', 'meetup']));
+    h.start();
+    expect(cb.onFront).toHaveBeenCalled();
+    expect(typeof cb.onFront.mock.calls[0][0]).toBe('string');
+    h.destroy();
+  });
+
+  it('정면이 바뀌지 않으면 다시 알리지 않는다', () => {
+    // 매 프레임 알리면 React가 매 프레임 리렌더된다
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, reduced, cb);
+    h.setNodes(stubNodes(['todo']));
+    h.start();
+    const first = cb.onFront.mock.calls.length;
+    vi.advanceTimersByTime(16 * 30);
+    expect(cb.onFront.mock.calls.length).toBe(first);
+    h.destroy();
+  });
+
+  it('노드를 비우면 정면이 null이 된다', () => {
+    const { canvas } = stubCanvas();
+    const cb = noopCallbacks();
+    const h = createCosmos(canvas, reduced, cb);
+    h.setNodes(stubNodes(['todo']));
+    h.start();
+    cb.onFront.mockClear();
+    h.setNodes([]);
+    expect(cb.onFront).toHaveBeenCalledWith(null);
+    h.destroy();
+  });
+});
+
+describe('회전 조작', () => {
+  it('drag는 노드 위치를 바꾼다', () => {
+    const { canvas } = stubCanvas();
+    const nodes = stubNodes(['todo', 'blog']);
+    const h = createCosmos(canvas, reduced, noopCallbacks());
+    h.setNodes(nodes);
+    h.start();
+    const before = nodes[0].element.style.transform;
+    h.drag(120);
+    expect(nodes[0].element.style.transform).not.toBe(before);
+    h.destroy();
+  });
+
+  it('setPaused(true)면 자동 회전이 멈춘다', () => {
+    const { canvas } = stubCanvas();
+    const nodes = stubNodes(['todo', 'blog']);
+    const h = createCosmos(canvas, desktop, noopCallbacks());
+    h.setNodes(nodes);
+    h.start();
+    h.enter();
+    vi.advanceTimersByTime(16 * 120);
+    h.setPaused(true);
+    const frozen = nodes[0].element.style.transform;
+    vi.advanceTimersByTime(16 * 60);
+    expect(nodes[0].element.style.transform).toBe(frozen);
+    h.destroy();
   });
 });

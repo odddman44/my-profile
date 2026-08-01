@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { CosmosBackground } from '@/components/cosmos/CosmosBackground';
 import { profile } from '@/data/profile';
 import './globals.css';
 
@@ -19,7 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="min-h-screen antialiased">
-        <CosmosBackground />
         {children}
       </body>
     </html>
