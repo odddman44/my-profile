@@ -18,12 +18,18 @@ const CHANNEL_ACCENT = '203,213,225';
 const PROJECT_ACCENTS = ['129,140,248', '167,139,250', '56,189,248', '244,114,182'];
 /** 가장자리 스와이프는 브라우저 뒤로가기와 충돌하므로 회전 입력에서 제외한다 */
 const EDGE_EXCLUSION = 24;
+/** 이보다 적게 움직이면 드래그가 아니라 클릭으로 본다 */
+const CLICK_MOVE_THRESHOLD = 6;
 
 export function Stage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const coreRef = useRef<HTMLButtonElement>(null);
   const handleRef = useRef<CosmosHandle | null>(null);
   const starRefs = useRef(new Map<string, HTMLAnchorElement>());
   const dragX = useRef<number | null>(null);
+  // 빈 곳을 눌러 클릭인지 드래그인지 가리는 데 쓴다. 드래그로 성좌를 돌리는 사용자가
+  // 패널을 잃지 않도록, 포인터가 거의 움직이지 않았을 때만 "클릭"으로 본다.
+  const emptyClickStart = useRef<{ x: number; y: number } | null>(null);
 
   const [phase, setPhase] = useState<Phase>('warp');
   const [enterVisible, setEnterVisible] = useState(false);
@@ -41,6 +47,8 @@ export function Stage() {
       onEnterVisible: setEnterVisible,
     });
     handleRef.current = handle;
+    // 중심 항성도 별과 같은 settleT로 점화되도록 엔진에 등록한다 (F-4)
+    if (coreRef.current) handle.setCoreElement(coreRef.current);
 
     const slots = assignSlots(
       projects.map((p) => p.slug),
@@ -90,6 +98,12 @@ export function Stage() {
   }, []);
 
   function onPointerDown(event: React.PointerEvent) {
+    // 빈 곳(별·중심 항성·패널이 아닌 곳)을 눌렀을 때만 닫기 후보로 기록한다
+    const target = event.target as HTMLElement;
+    const onInteractive = target.closest('a[data-star], button, [role="dialog"]') !== null;
+    emptyClickStart.current =
+      panel !== null && !onInteractive ? { x: event.clientX, y: event.clientY } : null;
+
     if (phase !== 'orbit') return;
     const { clientX } = event;
     if (clientX < EDGE_EXCLUSION || clientX > window.innerWidth - EDGE_EXCLUSION) return;
@@ -102,8 +116,21 @@ export function Stage() {
     dragX.current = event.clientX;
   }
 
+  function onPointerUp(event: React.PointerEvent) {
+    const start = emptyClickStart.current;
+    endDrag();
+    if (!start) return;
+    const movedX = Math.abs(event.clientX - start.x);
+    const movedY = Math.abs(event.clientY - start.y);
+    // 드래그가 아니라 클릭일 때만 닫는다 — 빈 곳을 잡고 돌리던 사용자는 패널을 잃지 않는다
+    if (movedX <= CLICK_MOVE_THRESHOLD && movedY <= CLICK_MOVE_THRESHOLD) {
+      setPanel(null);
+    }
+  }
+
   function endDrag() {
     dragX.current = null;
+    emptyClickStart.current = null;
   }
 
   return (
@@ -111,7 +138,7 @@ export function Stage() {
       className="relative h-screen w-screen overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
+      onPointerUp={onPointerUp}
       onPointerLeave={endDrag}
     >
       <canvas
@@ -120,7 +147,7 @@ export function Stage() {
         className="pointer-events-none absolute inset-0 h-full w-full"
       />
 
-      <CoreStar profile={profile} onOpen={openProfile} />
+      <CoreStar ref={coreRef} profile={profile} onOpen={openProfile} />
 
       {projects.map((project, i) => (
         <StarLink

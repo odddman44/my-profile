@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Stage } from './Stage';
 import { projects } from '@/data/projects';
@@ -39,5 +39,32 @@ describe('Stage', () => {
   it('언마운트되어도 예외가 없다', () => {
     const { unmount } = render(<Stage />);
     expect(() => unmount()).not.toThrow();
+  });
+
+  // F-3: 스펙 §6은 "빈 곳 클릭 · 닫기 버튼 · Esc 키 셋 다" 지원을 요구하지만
+  // 빈 곳 클릭은 어느 태스크에서도 구현되지 않았다. 모바일 하단 시트에서는
+  // 시트 위쪽을 탭해 닫는 것이 자연스러운 제스처라 특히 영향이 크다.
+  it('별을 열고 빈 곳을 클릭하면 패널이 닫힌다', () => {
+    const { container } = render(<Stage />);
+    fireEvent.click(screen.getAllByRole('link')[0]);
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    const main = container.querySelector('main')!;
+    fireEvent.pointerDown(main, { clientX: 5, clientY: 5 });
+    fireEvent.pointerUp(main, { clientX: 5, clientY: 5 });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('빈 곳을 눌러 드래그하면(포인터가 움직이면) 패널이 닫히지 않는다', () => {
+    // 빈 곳을 잡고 성좌를 돌리려는 사용자가 패널을 잃지 않아야 한다
+    const { container } = render(<Stage />);
+    fireEvent.click(screen.getAllByRole('link')[0]);
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    const main = container.querySelector('main')!;
+    fireEvent.pointerDown(main, { clientX: 5, clientY: 5 });
+    fireEvent.pointerMove(main, { clientX: 80, clientY: 5 });
+    fireEvent.pointerUp(main, { clientX: 80, clientY: 5 });
+    expect(screen.getByRole('dialog')).toBeDefined();
   });
 });

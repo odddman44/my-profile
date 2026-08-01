@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CoreStar } from './CoreStar';
 import { StarLink } from './StarLink';
 import { profile } from '@/data/profile';
+import { CENTER_Y_RATIO } from '@/components/cosmos/orbit';
 
 afterEach(cleanup);
 
@@ -24,6 +25,14 @@ describe('CoreStar', () => {
     render(<CoreStar profile={profile} onOpen={onOpen} />);
     screen.getByRole('button').click();
     expect(onOpen).toHaveBeenCalled();
+  });
+
+  // F-6: 궤도 중심 y좌표가 orbit.ts(CENTER_Y_RATIO) · renderer.ts(궤도선) ·
+  // CoreStar.tsx(중심 항성) 세 곳에 따로 박혀 있었다. CoreStar가 상수를 직접
+  // 참조해야 하나를 바꿔도 셋이 어긋나지 않는다.
+  it('중심 항성 위치가 orbit.ts의 CENTER_Y_RATIO를 따른다', () => {
+    render(<CoreStar profile={profile} onOpen={() => {}} />);
+    expect(screen.getByRole('button').style.top).toBe(`${CENTER_Y_RATIO * 100}%`);
   });
 });
 
