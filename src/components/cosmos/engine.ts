@@ -61,7 +61,7 @@ export function createCosmos(
   const renderer = createRenderer(ctx);
   let viewport: Viewport = { width: 0, height: 0 };
   let layers: StarLayer[] = [];
-  let warpStars: WarpStar[] = createWarpStars(params.warpStarCount);
+  const warpStars: WarpStar[] = createWarpStars(params.warpStarCount);
   let nodes: StageNode[] = [];
   let phaseState: PhaseState = createPhaseState(params.skipIntro);
   let rotation: RotationState = createRotation(params);
@@ -151,13 +151,19 @@ export function createCosmos(
     notifyPhase();
 
     // 모션 감소 설정에서는 계속 돌리지 않는다. 조작이 있을 때만 다시 그린다.
-    const keepGoing = params.animate || phaseState.phase !== 'orbit' || rotation.target !== null;
+    // 일시정지 중에는 aim이 남아 있어도 advanceRotation이 target을 소모하지 않으므로
+    // paused를 함께 봐야 한다. 그렇지 않으면 target이 남은 채로 영원히 다시 예약된다.
+    const keepGoing =
+      params.animate || phaseState.phase !== 'orbit' || (rotation.target !== null && !paused);
     frameId = keepGoing && !destroyed ? requestAnimationFrame(frame) : null;
   }
 
   /** 루프가 멈춰 있으면 한 프레임만 다시 그린다 */
   function requestFrame() {
     if (destroyed || frameId !== null) return;
+    // start() 전에 setNodes/enter/drag/aim이 루프를 먼저 깨울 수 있다.
+    // 이 경로에서도 뷰포트를 잡아두지 않으면 0x0에 영원히 고정된다.
+    if (viewport.width === 0) resize();
     frame();
   }
 
