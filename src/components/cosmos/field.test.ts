@@ -52,39 +52,27 @@ describe('parallaxOffset', () => {
   const viewport = { width: 1000, height: 800 };
 
   it('깊이가 0이면 움직이지 않는다', () => {
-    const offset = parallaxOffset(0, { x: 0.5, y: 0.5 }, 300, params, viewport);
+    const offset = parallaxOffset(0, { x: 0.5, y: 0.5 }, params, viewport);
     expect(offset.x).toBe(0);
     expect(offset.y).toBe(0);
   });
 
-  it('마우스가 중앙이고 스크롤이 0이면 오프셋이 0이다', () => {
-    const offset = parallaxOffset(0.8, { x: 0, y: 0 }, 0, params, viewport);
+  it('마우스가 중앙이면 오프셋이 0이다', () => {
+    const offset = parallaxOffset(0.8, { x: 0, y: 0 }, params, viewport);
     expect(offset.x).toBe(0);
     expect(offset.y).toBe(0);
   });
 
   it('가까운 레이어가 먼 레이어보다 많이 움직인다', () => {
-    const near = parallaxOffset(0.78, { x: 0.4, y: 0 }, 0, params, viewport);
-    const far = parallaxOffset(0.1, { x: 0.4, y: 0 }, 0, params, viewport);
+    const near = parallaxOffset(0.78, { x: 0.4, y: 0 }, params, viewport);
+    const far = parallaxOffset(0.1, { x: 0.4, y: 0 }, params, viewport);
     expect(Math.abs(near.x)).toBeGreaterThan(Math.abs(far.x));
-  });
-
-  it('스크롤은 y축만 밀어낸다', () => {
-    const offset = parallaxOffset(0.5, { x: 0, y: 0 }, 500, params, viewport);
-    expect(offset.x).toBe(0);
-    expect(offset.y).not.toBe(0);
   });
 
   it('마우스 시차가 꺼지면 마우스 입력을 무시한다', () => {
     const mobile = resolveParams({ hasFinePointer: false, prefersReducedMotion: false });
-    const offset = parallaxOffset(0.8, { x: 0.5, y: 0.5 }, 0, mobile, viewport);
+    const offset = parallaxOffset(0.8, { x: 0.5, y: 0.5 }, mobile, viewport);
     expect(offset.x).toBe(0);
-    expect(offset.y).toBe(0);
-  });
-
-  it('모션 감소 설정에서는 스크롤에도 반응하지 않는다', () => {
-    const reduced = resolveParams({ hasFinePointer: true, prefersReducedMotion: true });
-    const offset = parallaxOffset(0.8, { x: 0.5, y: 0.5 }, 900, reduced, viewport);
     expect(offset.y).toBe(0);
   });
 });

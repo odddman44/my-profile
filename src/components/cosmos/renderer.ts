@@ -14,7 +14,6 @@ export type RenderState = {
   mouse: Vec2;
   cursor: Vec2;
   pointerActive: boolean;
-  scrollY: number;
 };
 
 const BACKGROUND = '#03040a';
@@ -93,7 +92,7 @@ export function createRenderer(ctx: CanvasRenderingContext2D) {
     const useGravity = params.gravity && state.pointerActive;
 
     for (const layer of layers) {
-      const offset = parallaxOffset(layer.depth, state.mouse, state.scrollY, params, viewport);
+      const offset = parallaxOffset(layer.depth, state.mouse, params, viewport);
       // 가까운 레이어에만 중력을 적용한다. 전체에 걸면 산만해진다.
       const gravityLayer = useGravity && layer.depth > 0.5;
 

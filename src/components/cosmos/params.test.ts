@@ -22,11 +22,6 @@ describe('resolveParams', () => {
     expect(params.dprCap).toBe(1.5);
   });
 
-  it('포인터가 없어도 스크롤 시차는 유지한다', () => {
-    // 모바일에서 공간감을 만드는 유일한 인터랙션이 스크롤이다
-    expect(resolveParams(mobile).scrollParallax).toBe(1);
-  });
-
   it('모션 감소 설정에서는 애니메이션을 끈다', () => {
     const params = resolveParams(reduced);
     expect(params.animate).toBe(false);
@@ -35,12 +30,36 @@ describe('resolveParams', () => {
   it('모션 감소 설정에서는 모든 움직임 파라미터가 0이 된다', () => {
     const params = resolveParams(reduced);
     expect(params.mouseParallax).toBe(0);
-    expect(params.scrollParallax).toBe(0);
     expect(params.gravity).toBe(false);
   });
 
   it('모션 감소 설정에서도 별과 성운은 그린다', () => {
     // 정적인 우주 사진 한 장은 남아야 한다
+    const params = resolveParams(reduced);
+    expect(params.starCount).toBeGreaterThan(0);
+    expect(params.nebulaIntensity).toBeGreaterThan(0);
+  });
+
+  it('데스크톱에서는 워프 오프닝과 자동 회전을 사용한다', () => {
+    const params = resolveParams(desktop);
+    expect(params.skipIntro).toBe(false);
+    expect(params.autoRotate).toBeGreaterThan(0);
+    expect(params.inertia).toBe(true);
+    expect(params.warpStarCount).toBe(420);
+  });
+
+  it('포인터가 없으면 워프 별을 줄인다', () => {
+    expect(resolveParams(mobile).warpStarCount).toBe(200);
+  });
+
+  it('모션 감소 설정에서는 오프닝을 건너뛰고 자동 회전과 관성을 끈다', () => {
+    const params = resolveParams(reduced);
+    expect(params.skipIntro).toBe(true);
+    expect(params.autoRotate).toBe(0);
+    expect(params.inertia).toBe(false);
+  });
+
+  it('모션 감소 설정에서도 별과 성운은 그린다', () => {
     const params = resolveParams(reduced);
     expect(params.starCount).toBeGreaterThan(0);
     expect(params.nebulaIntensity).toBeGreaterThan(0);

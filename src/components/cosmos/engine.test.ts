@@ -103,7 +103,6 @@ describe('createCosmos', () => {
 
     const removed = removeSpy.mock.calls.map((call) => call[0]);
     expect(removed).toContain('mousemove');
-    expect(removed).toContain('scroll');
     expect(removed).toContain('resize');
     removeSpy.mockRestore();
   });

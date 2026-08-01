@@ -27,3 +27,6 @@ export type Profile = {
   /** 소개 문단 */
   intro: string[];
 };
+
+/** 오프닝 시퀀스의 단계 */
+export type Phase = 'warp' | 'settle' | 'orbit';

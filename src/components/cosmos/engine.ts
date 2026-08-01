@@ -32,7 +32,6 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
     mouse: { x: 0, y: 0 },
     cursor: { x: 0, y: 0 },
     pointerActive: false,
-    scrollY: 0,
   };
 
   function resize() {
@@ -75,10 +74,6 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
     target.y = 0;
   }
 
-  function handleScroll() {
-    state.scrollY = window.scrollY;
-  }
-
   function handleVisibility() {
     if (document.visibilityState === 'hidden') stop();
     else if (!destroyed && params.animate) start();
@@ -112,7 +107,6 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
 
   window.addEventListener('mousemove', handleMouseMove, { passive: true });
   window.addEventListener('mouseout', handleMouseLeave, { passive: true });
-  window.addEventListener('scroll', handleScroll, { passive: true });
   window.addEventListener('resize', handleResize);
   document.addEventListener('visibilitychange', handleVisibility);
 
@@ -129,7 +123,6 @@ export function createCosmos(canvas: HTMLCanvasElement, params: CosmosParams): C
       }
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseout', handleMouseLeave);
-      window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibility);
     },
