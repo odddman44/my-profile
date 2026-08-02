@@ -7,7 +7,7 @@ export type Project = {
   url: string;
   status: ProjectStatus;
   tech: string[];
-  /** 카드 호버 시 발광색. 미지정 시 기본 강조색을 쓴다 */
+  /** 별의 발광색. 미지정 시 기본 강조색을 쓴다 */
   accent?: string;
 };
 
@@ -22,8 +22,9 @@ export type Channel = {
 export type Profile = {
   displayName: string;
   role: string;
-  /** 히어로 대형 카피. 배열 요소마다 줄바꿈된다 */
-  heroCopy: string[];
   /** 소개 문단 */
   intro: string[];
 };
+
+/** 오프닝 시퀀스의 단계 */
+export type Phase = 'warp' | 'settle' | 'orbit';

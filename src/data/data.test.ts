@@ -37,7 +37,7 @@ describe('channels 데이터', () => {
 });
 
 describe('profile 데이터', () => {
-  it('히어로 카피가 비어 있지 않다', () => {
-    expect(profile.heroCopy.length).toBeGreaterThan(0);
+  it('소개 문단이 비어 있지 않다', () => {
+    expect(profile.intro.length).toBeGreaterThan(0);
   });
 });

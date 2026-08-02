@@ -37,8 +37,6 @@ const LAYER_SPECS: LayerSpec[] = [
 
 /** 시차 이동량 계수. 화면 크기 대비 최대 이동 비율 */
 const PARALLAX_SCALE = 0.55;
-/** 스크롤 1px당 이동량 */
-const SCROLL_SCALE = 0.12;
 /** 프레임당 표류량 배수. 눈치채지 못할 만큼 느려야 한다 */
 const DRIFT_SCALE = 0.0012;
 
@@ -78,16 +76,14 @@ export function createLayers(starCount: number, random: () => number = Math.rand
 export function parallaxOffset(
   depth: number,
   mouse: Vec2,
-  scrollY: number,
   params: CosmosParams,
   viewport: Viewport,
 ): Vec2 {
   const mouseFactor = depth * PARALLAX_SCALE * params.mouseParallax;
-  const scrollFactor = depth * SCROLL_SCALE * params.scrollParallax;
 
   return {
     x: mouse.x * viewport.width * mouseFactor,
-    y: mouse.y * viewport.height * mouseFactor + scrollY * scrollFactor,
+    y: mouse.y * viewport.height * mouseFactor,
   };
 }
 
