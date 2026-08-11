@@ -7,7 +7,7 @@ export const projects: Project[] = [
     tagline: '할 일을 기록하고 관리하는 앱. 오늘의 한 문장과 함께하는 Todo',
     url: 'https://todo.cosmoslog.org',
     status: 'live',
-    tech: ['Next.js', 'TypeScript'],
+    tech: ['Java', 'Spring Boot', 'JPA', 'TypeScript'],
   },
   // TODO: 실제 Vercel 배포 URL로 교체 필요
   {
