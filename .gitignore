@@ -45,3 +45,7 @@ next-env.d.ts
 
 # Superpowers 브레인스토밍 임시 산출물
 .superpowers/
+
+# 계획·설계 문서는 로컬에만 두되, 링크 수정 가이드는 추적한다
+docs/*
+!docs/links.md
