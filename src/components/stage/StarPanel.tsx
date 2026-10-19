@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { ProjectStatus } from '@/types';
 
 export type PanelContent = {
   title: string;
   body: string[];
   tech?: string[];
-  status?: ProjectStatus;
   href?: string;
   hrefLabel?: string;
 };
@@ -50,11 +48,6 @@ export function StarPanel({ content, onClose }: Props) {
     >
       <div className="mb-2 flex items-center gap-3">
         <h2 className="text-lg font-semibold text-[#f2f5ff]">{content.title}</h2>
-        {content.status === 'building' && (
-          <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-0.5 text-[11px] text-amber-200">
-            개발 중
-          </span>
-        )}
       </div>
 
       {content.body.map((line) => (

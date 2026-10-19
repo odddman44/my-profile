@@ -80,7 +80,6 @@ export function Stage() {
       title: project.name,
       body: [project.tagline],
       tech: project.tech,
-      status: project.status,
       href: project.url,
       hrefLabel: '사이트 열기',
     });
