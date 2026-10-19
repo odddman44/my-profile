@@ -8,7 +8,6 @@ const project = {
   title: 'todo',
   body: ['할 일을 기록하고 관리하는 앱'],
   tech: ['Next.js', 'TypeScript'],
-  status: 'building' as const,
   href: 'https://todo.cosmoslog.org',
   hrefLabel: '사이트 열기',
 };
@@ -23,16 +22,6 @@ describe('StarPanel', () => {
     render(<StarPanel content={project} onClose={() => {}} />);
     expect(screen.getByText('todo')).toBeDefined();
     expect(screen.getByText('할 일을 기록하고 관리하는 앱')).toBeDefined();
-  });
-
-  it('개발 중인 항목에 배지를 보여준다', () => {
-    render(<StarPanel content={project} onClose={() => {}} />);
-    expect(screen.getByText('개발 중')).toBeDefined();
-  });
-
-  it('운영 중인 항목에는 배지가 없다', () => {
-    render(<StarPanel content={{ ...project, status: 'live' }} onClose={() => {}} />);
-    expect(screen.queryByText('개발 중')).toBeNull();
   });
 
   it('바로가기 링크에 보안 속성을 붙인다', () => {

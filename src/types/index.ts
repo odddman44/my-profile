@@ -1,11 +1,8 @@
-export type ProjectStatus = 'live' | 'building';
-
 export type Project = {
   slug: string;
   name: string;
   tagline: string;
   url: string;
-  status: ProjectStatus;
   tech: string[];
   /** 별의 발광색. 미지정 시 기본 강조색을 쓴다 */
   accent?: string;

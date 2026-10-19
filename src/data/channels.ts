@@ -5,5 +5,5 @@ import type { Channel } from '@/types';
 export const channels: Channel[] = [
   { kind: 'github', label: 'GitHub', href: 'https://github.com/odddman44' },
   { kind: 'email', label: 'okw9344@gmail.com', href: 'mailto:okw9344@gmail.com' },
-  { kind: 'instagram', label: 'odddman44', href: 'https://www.instagram.com/odddman44' }
+  { kind: 'instagram', label: 'Instagram @koh.smos', href: 'https://www.instagram.com/koh.smos' }
 ];
